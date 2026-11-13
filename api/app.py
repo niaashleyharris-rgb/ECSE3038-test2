@@ -107,3 +107,13 @@ def post_reading(
         "humidity": doc["humidity"],
         "timestamp": doc["timestamp"],
     }
+
+# --- A3: Get Readings ---
+@app.get("/readings")
+def get_readings(
+    mac: Optional[str] = None,
+    limit: int = Query(10, ge=1, le=100),
+):
+    query = {"mac": mac} if mac else {}
+    cursor = readings_col.find(query, {"_id": 0}).sort("timestamp", DESCENDING).limit(limit)
+    return list(cursor)
