@@ -76,3 +76,34 @@ def get_fan(mac: str):
     if not fan:
         raise HTTPException(status_code=404, detail="Fan not found")
     return serialize_fan(fan)
+
+
+# --- A2: Post Reading ---
+@app.post("/readings", status_code=status.HTTP_201_CREATED)
+def post_reading(
+    reading: ReadingCreate,
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+):
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="Missing X-API-Key")
+
+    # Check if key exists at all
+    key_owner = fans_col.find_one({"api_key": x_api_key})
+    if not key_owner:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Check if key belongs to the submitted MAC
+    if key_owner["mac"] != reading.mac:
+        raise HTTPException(status_code=403, detail="API key does not match MAC")
+
+    doc = {
+        "mac": reading.mac,
+        "humidity": reading.humidity,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    readings_col.insert_one(doc)
+    return {
+        "mac": doc["mac"],
+        "humidity": doc["humidity"],
+        "timestamp": doc["timestamp"],
+    }
