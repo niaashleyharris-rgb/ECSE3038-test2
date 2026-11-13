@@ -141,3 +141,26 @@ def update_settings(mac: str, settings: FanSettings, response: Response):
 
     response.status_code = status.HTTP_201_CREATED if is_new else status.HTTP_200_OK
     return settings_dict
+
+# --- A5: Delete Fan ---
+@app.delete("/fans/{mac}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_fan(
+    mac: str,
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+):
+    fan = fans_col.find_one({"mac": mac})
+    if not fan:
+        raise HTTPException(status_code=404, detail="Fan not found")
+
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="Missing X-API-Key")
+
+    key_owner = fans_col.find_one({"api_key": x_api_key})
+    if not key_owner:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    if fan["api_key"] != x_api_key:
+        raise HTTPException(status_code=403, detail="Forbidden: key belongs to another fan")
+
+    fans_col.delete_one({"mac": mac})
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
