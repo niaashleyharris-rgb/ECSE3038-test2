@@ -48,3 +48,31 @@ def serialize_fan(doc: dict) -> dict:
     if "settings" in doc:
         out["settings"] = doc["settings"]
     return out
+
+# --- A1: Fans ---
+@app.post("/fans", status_code=status.HTTP_201_CREATED)
+def create_fan(fan: FanCreate):
+    if fans_col.find_one({"mac": fan.mac}):
+        raise HTTPException(status_code=409, detail="MAC already registered")
+
+    api_key = secrets.token_urlsafe(16)
+    doc = {
+        "mac": fan.mac,
+        "room": fan.room,
+        "api_key": api_key,
+    }
+    fans_col.insert_one(doc)
+    return {"mac": fan.mac, "room": fan.room, "api_key": api_key}
+
+
+@app.get("/fans")
+def list_fans():
+    return [serialize_fan(f) for f in fans_col.find()]
+
+
+@app.get("/fans/{mac}")
+def get_fan(mac: str):
+    fan = fans_col.find_one({"mac": mac})
+    if not fan:
+        raise HTTPException(status_code=404, detail="Fan not found")
+    return serialize_fan(fan)
