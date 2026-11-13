@@ -39,3 +39,12 @@ class ReadingCreate(BaseModel):
 class FanSettings(BaseModel):
     mode: Literal["auto", "on", "off"]
     max_humidity: float = Field(..., ge=0, le=100)
+
+def serialize_fan(doc: dict) -> dict:
+    out = {
+        "mac": doc["mac"],
+        "room": doc["room"],
+    }
+    if "settings" in doc:
+        out["settings"] = doc["settings"]
+    return out
