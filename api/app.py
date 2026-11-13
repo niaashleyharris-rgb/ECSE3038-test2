@@ -117,3 +117,27 @@ def get_readings(
     query = {"mac": mac} if mac else {}
     cursor = readings_col.find(query, {"_id": 0}).sort("timestamp", DESCENDING).limit(limit)
     return list(cursor)
+
+# --- A4: Update Fan Settings & Publish MQTT ---
+@app.put("/fans/{mac}/settings")
+def update_settings(mac: str, settings: FanSettings, response: Response):
+    fan = fans_col.find_one({"mac": mac})
+    if not fan:
+        raise HTTPException(status_code=404, detail="Fan not found")
+
+    is_new = "settings" not in fan
+    settings_dict = {"mode": settings.mode, "max_humidity": settings.max_humidity}
+
+    fans_col.update_one({"mac": mac}, {"$set": {"settings": settings_dict}})
+
+    # Publish retained JSON to class broker
+    topic = f"ecse3038/{MQTT_NAME}/fan/settings"
+    payload = json.dumps(settings_dict)
+
+    mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    mqtt_client.connect(BROKER_HOST, BROKER_PORT, 60)
+    mqtt_client.publish(topic, payload, retain=True)
+    mqtt_client.disconnect()
+
+    response.status_code = status.HTTP_201_CREATED if is_new else status.HTTP_200_OK
+    return settings_dict
