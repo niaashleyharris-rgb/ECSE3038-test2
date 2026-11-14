@@ -98,3 +98,88 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   updateFanState();
 }
 
+// B2: Connect/Reconnect MQTT with Last Will
+void reconnectMqtt() {
+  while (!mqttClient.connected()) {
+    String clientId = "esp32-fan-" + WiFi.macAddress();
+    Serial.print("Connecting to MQTT broker...");
+
+    // Last will: topicStatus, QoS 0, retained = true, payload = "offline"
+    if (mqttClient.connect(clientId.c_str(), nullptr, nullptr, topicStatus.c_str(), 0, true, "offline")) {
+      Serial.println("connected!");
+      // Publish online, retained
+      mqttClient.publish(topicStatus.c_str(), "online", true);
+      // Publish initial state retained so topic reflects current state
+      mqttClient.publish(topicState.c_str(), fanIsOn ? "on" : "off", true);
+      // Subscribe to settings
+      mqttClient.subscribe(topicSettings.c_str());
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(mqttClient.state());
+      Serial.println(" retrying in 2s...");
+      delay(2000);
+    }
+  }
+}
+
+// B1: Post humidity reading to API
+void sendReading(float humidity) {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  HTTPClient http;
+  String url = String(API_BASE_URL) + "/readings";
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-API-Key", DEVICE_KEY);
+
+  JsonDocument doc;
+  doc["mac"] = WiFi.macAddress();
+  doc["humidity"] = humidity;
+
+  String body;
+  serializeJson(doc, body);
+
+  int httpCode = http.POST(body);
+  Serial.printf("POST /readings (humidity=%.1f) -> HTTP %d\n", humidity, httpCode);
+  http.end();
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(FAN_PIN, OUTPUT);
+  digitalWrite(FAN_PIN, LOW);
+  dht.begin();
+
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(300);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi connected!");
+  Serial.print("ESP32 MAC Address: ");
+  Serial.println(WiFi.macAddress());
+
+  mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
+  mqttClient.setCallback(mqttCallback);
+}
+
+void loop() {
+  if (!mqttClient.connected()) {
+    reconnectMqtt();
+  }
+  mqttClient.loop();
+
+  unsigned long now = millis();
+  if (now - lastReadingMillis >= READING_INTERVAL || lastReadingMillis == 0) {
+    lastReadingMillis = now;
+    float h = dht.readHumidity();
+    if (!isnan(h)) {
+      lastHumidity = h;
+      updateFanState();
+      sendReading(h);
+    } else {
+      Serial.println("Failed to read from DHT22!");
+    }
+  }
+}
