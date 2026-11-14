@@ -1,4 +1,3 @@
-Markdown
 # ECSE3038 Test 2: Smart Bathroom Extractor Fan
 
 An IoT system that monitors bathroom humidity using an ESP32 and DHT22 sensor in Wokwi, logs readings to MongoDB Atlas via a FastAPI backend, and automatically controls an extractor fan (LED) using MQTT.
@@ -25,12 +24,12 @@ Create a .env file inside api/ with your MongoDB Atlas URI and MQTT topic prefix
 
 Code snippet
 MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority
-MQTT_NAME=lizzy
+MQTT_NAME=<name>
 Start the FastAPI server:
 
 Bash
 uvicorn app:app --host 127.0.0.1 --port 8000
-Interactive API documentation is available at http://iot-nharris2005.northcentralus.cloudapp.azure.com/docs .
+Interactive API documentation is available at http://<your-vm-ip>/docs.
 
 Key Endpoints
 POST /fans — Register a new fan ({"mac", "room"}) and generate an API key.
@@ -41,7 +40,7 @@ POST /readings — Submit humidity readings (requires X-API-Key header).
 
 GET /readings — Query historical readings (supports ?mac= and ?limit=).
 
-PUT /fans/{mac}/settings — Update fan settings (mode: auto | on | off, max_humidity) and publish retained JSON to ecse3038/lizzy/fan/settings.
+PUT /fans/{mac}/settings — Update fan settings (mode: auto | on | off, max_humidity) and publish retained JSON to ecse3038/<name>/fan/settings.
 
 DELETE /fans/{mac} — Delete a fan (requires that fan's X-API-Key).
 
@@ -53,8 +52,8 @@ Create board/include/secrets.h:
 C++
 #pragma once
 #define DEVICE_KEY ""
-#define API_BASE_URL "http://iot-nharris2005.northcentralus.cloudapp.azure.com"
-#define MQTT_NAME "lizzy"
+#define API_BASE_URL "http://<your-vm-ip>"
+#define MQTT_NAME "<name>"
 Register the device:
 
 Build the project and start the Wokwi simulation.
@@ -69,4 +68,4 @@ Run the simulation:
 
 Rebuild the project and restart the Wokwi simulation.
 
-The ESP32 posts humidity readings every 10 seconds, reports online/offline status via MQTT Last Will on ecse3038/lizzy/status, listens for settings on ecse3038/lizzy/fan/settings, and publishes fan state changes on ecse3038/lizzy/fan/state.
+The ESP32 posts humidity readings every 10 seconds, reports online/offline status via MQTT Last Will on ecse3038/<name>/status, listens for settings on ecse3038/<name>/fan/settings, and publishes fan state changes on ecse3038/<name>/fan/state.
